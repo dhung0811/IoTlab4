@@ -1,0 +1,231 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0f1117;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: #1a1d27;
+  border-bottom: 1px solid #2d3148;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+#clock {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-left: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+main {
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin: 24px 0 12px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-1 { grid-template-columns: 1fr; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  main { padding: 16px; }
+}
+
+.card {
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Device cards */
+.device-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.device-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #2d3148;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #7c8cf8;
+  flex-shrink: 0;
+}
+
+.device-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.device-proto {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.device-card .badge {
+  margin-left: auto;
+}
+
+/* Metric cards */
+.metric-card {
+  text-align: center;
+  position: relative;
+}
+
+.metric-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
+.metric-value {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+
+.metric-unit {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.metric-source {
+  font-size: 0.72rem;
+  color: #475569;
+  margin-top: 8px;
+}
+
+.metric-status {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+/* Air quality color coding */
+.aq-good    { background: #064e3b; color: #6ee7b7; }
+.aq-moderate{ background: #78350f; color: #fcd34d; }
+.aq-poor    { background: #7f1d1d; color: #fca5a5; }
+
+/* Charts */
+.chart-card {
+  padding: 20px 20px 16px;
+}
+
+.chart-title {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+canvas {
+  max-height: 220px;
+}
+
+/* Table */
+.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+thead tr {
+  background: #12141e;
+}
+
+th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+td {
+  padding: 11px 16px;
+  border-top: 1px solid #1e2235;
+  color: #cbd5e1;
+}
+
+tbody tr:hover {
+  background: #1e2235;
+}
+
+/* Badges */
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-online {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.badge-offline {
+  background: #1e2235;
+  color: #475569;
+}
