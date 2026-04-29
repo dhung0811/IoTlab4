@@ -1,11 +1,10 @@
 /*
  * Wemos D1 Mini — MQ-135 Air Quality Sensor
- * Sends data to web server via HTTP POST every 5 seconds
+ * Sends telemetry to ThingsBoard via HTTP POST every 5 seconds
  *
- * Libraries required (install via Arduino Library Manager):
- *   - ESP8266WiFi      (built-in with ESP8266 board package)
- *   - ESP8266HTTPClient (built-in with ESP8266 board package)
- *   - ArduinoJson      (by Benoit Blanchon, v6.x)
+ * Libraries required (Arduino Library Manager):
+ *   - ArduinoJson  (by Benoit Blanchon, v6.x)
+ *   ESP8266WiFi + ESP8266HTTPClient are built-in with the ESP8266 board package
  */
 
 #include <ESP8266WiFi.h>
@@ -13,26 +12,28 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-// ── Configuration ────────────────────────────────────────────────────────────
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* SERVER_URL    = "http://YOUR_SERVER_IP:3000/api/sensors";
-const char* DEVICE_ID     = "wemos_d1";
+// ── Configuration ─────────────────────────────────────────────────────────────
+const char* WIFI_SSID      = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD  = "YOUR_WIFI_PASSWORD";
 
-const int MQ135_PIN      = A0;
-const int SEND_INTERVAL  = 5000;  // ms
+// ThingsBoard host — use demo.thingsboard.io or your self-hosted IP
+const char* TB_HOST        = "demo.thingsboard.io";
+// Access token from ThingsBoard: Device → Copy Access Token
+const char* ACCESS_TOKEN   = "YOUR_DEVICE_ACCESS_TOKEN";
 
-// ── MQ-135 calibration ───────────────────────────────────────────────────────
-// Raw ADC range: 0–1023.  We map to 0–500 ppm (rough scale).
-// For a real calibration, use the MQ135 library with Rs/R0 ratio.
+const int   MQ135_PIN      = A0;
+const int   SEND_INTERVAL  = 5000;  // ms
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 float readAirQualityPPM() {
-  int raw = analogRead(MQ135_PIN);
-  return map(raw, 0, 1023, 0, 500);
+  // Raw ADC 0–1023 → mapped to 0–500 ppm (rough scale)
+  // For accurate readings, calibrate R0 with the MQ135 library
+  return map(analogRead(MQ135_PIN), 0, 1023, 0, 500);
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\nBooting Wemos D1 Air Quality Node...");
+  Serial.println("\nBooting Wemos D1 — ThingsBoard HTTP node");
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to WiFi");
@@ -53,17 +54,17 @@ void loop() {
 
   float aq = readAirQualityPPM();
 
-  // Build JSON payload
-  StaticJsonDocument<128> doc;
-  doc["device_id"]   = DEVICE_ID;
+  // ThingsBoard telemetry endpoint
+  String url = String("http://") + TB_HOST + "/api/v1/" + ACCESS_TOKEN + "/telemetry";
+
+  StaticJsonDocument<64> doc;
   doc["air_quality"] = aq;
   String payload;
   serializeJson(doc, payload);
 
-  // Send HTTP POST
   WiFiClient client;
   HTTPClient http;
-  http.begin(client, SERVER_URL);
+  http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
 
   int code = http.POST(payload);
