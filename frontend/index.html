@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IoT Air Quality Monitor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo">&#9681;</span>
+      <h1>Air Quality Monitor</h1>
+    </div>
+    <div class="header-right">
+      <span id="clock"></span>
+      <span id="ws-badge" class="badge badge-offline">&#9679; Disconnected</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── Device status ── -->
+    <div class="section-label">Device Status</div>
+    <div class="grid grid-2">
+
+      <div class="card device-card">
+        <div class="device-avatar wemos">W</div>
+        <div class="device-info">
+          <div class="device-name">Wemos D1</div>
+          <div class="device-sub">MQ-135 · HTTP</div>
+        </div>
+        <div class="device-right">
+          <span id="status-wemos_d1" class="badge badge-offline">Offline</span>
+          <div class="last-seen" id="seen-wemos_d1">—</div>
+        </div>
+      </div>
+
+      <div class="card device-card">
+        <div class="device-avatar rpi">R</div>
+        <div class="device-info">
+          <div class="device-name">Raspberry Pi</div>
+          <div class="device-sub">DHT22 · MQTT</div>
+        </div>
+        <div class="device-right">
+          <span id="status-raspberry_pi" class="badge badge-offline">Offline</span>
+          <div class="last-seen" id="seen-raspberry_pi">—</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Current values ── -->
+    <div class="section-label">Current Readings</div>
+    <div class="grid grid-3">
+
+      <div class="card metric-card">
+        <div class="metric-icon temp-icon">&#9864;</div>
+        <div class="metric-label">Temperature</div>
+        <div class="metric-row">
+          <span class="metric-value" id="val-temp">--</span>
+          <span class="metric-unit">°C</span>
+        </div>
+        <div class="metric-from">Raspberry Pi</div>
+      </div>
+
+      <div class="card metric-card">
+        <div class="metric-icon hum-icon">&#11044;</div>
+        <div class="metric-label">Humidity</div>
+        <div class="metric-row">
+          <span class="metric-value" id="val-hum">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div class="metric-from">Raspberry Pi</div>
+      </div>
+
+      <div class="card metric-card">
+        <div class="metric-icon aq-icon">&#9729;</div>
+        <div class="metric-label">Air Quality</div>
+        <div class="metric-row">
+          <span class="metric-value" id="val-aq">--</span>
+          <span class="metric-unit">ppm</span>
+        </div>
+        <div class="metric-from">Wemos D1</div>
+        <div id="aq-badge" class="aq-badge"></div>
+      </div>
+
+    </div>
+
+    <!-- ── Charts ── -->
+    <div class="section-label">History — last 50 readings</div>
+    <div class="grid grid-1">
+      <div class="card chart-card">
+        <div class="chart-label">Temperature (°C)</div>
+        <canvas id="chart-temp"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card chart-card">
+        <div class="chart-label">Humidity (%)</div>
+        <canvas id="chart-hum"></canvas>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-label">Air Quality (ppm)</div>
+        <canvas id="chart-aq"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Table ── -->
+    <div class="section-label">Recent Readings</div>
+    <div class="card table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Device</th>
+            <th>Temp (°C)</th>
+            <th>Humidity (%)</th>
+            <th>Air Quality (ppm)</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

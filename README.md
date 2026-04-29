@@ -1,33 +1,57 @@
-# IoT Air Quality Monitor — ThingsBoard
+# IoT Air Quality Monitor — Custom Web Server (Advanced)
 
-Monitor temperature, humidity, and air quality in real time using ThingsBoard.
+Full custom stack: Backend API + embedded MQTT broker + SQLite + real-time dashboard.
+No ThingsBoard or third-party IoT platform required.
 
-## Data Flow
+## Architecture
 
 ```
-Wemos D1 (MQ-135)    ── HTTP POST ──▶ ThingsBoard
-Raspberry Pi (DHT22) ── MQTT      ──▶ ThingsBoard
+Wemos D1 (MQ-135)    ─── HTTP POST ──▶┐
+                                        ├─▶  Node.js Server (port 3000)
+Raspberry Pi (DHT22) ─── MQTT ─────────┘       │         │
+                          (port 1883)          SQLite   Socket.io
+                                                           │
+                                                      Browser Dashboard
 ```
 
 ---
 
-## Part 1 — ThingsBoard Account & Devices
+## Part 1 — Run the Server
 
-### 1.1 Create an account
+### 1.1 Prerequisites
 
-Go to https://demo.thingsboard.io and register a free account (or use your self-hosted instance).
+- **Node.js 18+** — https://nodejs.org (download LTS)
+- After installing, verify: `node -v` and `npm -v`
 
-### 1.2 Create device: Wemos D1
+### 1.2 Install dependencies
 
-1. Left sidebar → **Devices** → click **+** (top-right) → **Add new device**
-2. Name: `Wemos D1` → **Add**
-3. Click the device row → **Copy access token** → save it (you will need it in step 2)
+```bash
+cd server
+npm install
+```
 
-### 1.3 Create device: Raspberry Pi
+### 1.3 Start the server
 
-1. Repeat the same steps above
-2. Name: `Raspberry Pi` → **Add**
-3. **Copy access token** → save it (you will need it in step 3)
+```bash
+npm start
+```
+
+You should see:
+```
+MQTT broker  → mqtt://0.0.0.0:1883
+Web server   → http://localhost:3000
+```
+
+Open **http://localhost:3000** in your browser — the dashboard will load.
+
+> To restart automatically on file changes during development: `npm run dev`
+
+### 1.4 Find your machine's LAN IP (needed for devices)
+
+**Windows:** `ipconfig` → look for IPv4 Address  
+**macOS / Linux:** `ifconfig` or `ip addr` → look for `192.168.x.x`
+
+You will use this IP in the Wemos D1 and Raspberry Pi configs below.
 
 ---
 
@@ -36,55 +60,56 @@ Go to https://demo.thingsboard.io and register a free account (or use your self-
 ### 2.1 Wiring
 
 ```
-MQ-135   Wemos D1
-------   --------
-VCC   →  3.3V
-GND   →  GND
-AOUT  →  A0
+MQ-135 module    Wemos D1 Mini
+─────────────    ─────────────
+VCC           →  3.3V
+GND           →  GND
+AOUT          →  A0
 ```
 
 > DOUT (digital out) is not used.
 
-### 2.2 Install Arduino IDE & board support
+### 2.2 Arduino IDE setup
 
 1. Download **Arduino IDE 2.x** from https://www.arduino.cc/en/software
-2. Open IDE → **File → Preferences** → paste this URL into *Additional boards manager URLs*:
+2. Open IDE → **File → Preferences** → paste into *Additional boards manager URLs*:
    ```
    https://arduino.esp8266.com/stable/package_esp8266com_index.json
    ```
 3. **Tools → Board → Boards Manager** → search `esp8266` → install **esp8266 by ESP8266 Community**
+4. **Tools → Manage Libraries** → search `ArduinoJson` → install **ArduinoJson by Benoit Blanchon** (version 6.x)
 
-### 2.3 Install required library
+### 2.3 Configure the sketch
 
-**Tools → Manage Libraries** → search `ArduinoJson` → install **ArduinoJson by Benoit Blanchon** (version 6.x)
-
-### 2.4 Configure the sketch
-
-Open `devices/wemos_d1/wemos_d1.ino` and edit the top section:
+Open `devices/wemos_d1/wemos_d1.ino` and edit:
 
 ```cpp
 const char* WIFI_SSID     = "your_wifi_name";
 const char* WIFI_PASSWORD = "your_wifi_password";
-const char* TB_HOST       = "demo.thingsboard.io";
-const char* ACCESS_TOKEN  = "paste_wemos_access_token_here";
+const char* SERVER_IP     = "192.168.1.100";   // ← your machine's LAN IP from step 1.4
 ```
 
-### 2.5 Flash
+### 2.4 Flash to Wemos D1
 
 1. Plug Wemos D1 into USB
 2. **Tools → Board** → select `LOLIN(WEMOS) D1 R2 & mini`
-3. **Tools → Port** → select the COM/tty port that appeared
+3. **Tools → Port** → select the COM / tty port that appeared
 4. Click **Upload** (→ arrow button)
-5. Open **Serial Monitor** (baud `115200`) — you should see:
+5. Open **Serial Monitor** at baud `115200` — you should see:
    ```
-   Connected! IP: 192.168.x.x
+   Connected! IP: 192.168.1.x
    [OK] air_quality=143.0 ppm
    [OK] air_quality=141.0 ppm
    ```
 
-### 2.6 Verify in ThingsBoard
+### 2.5 Verify
 
-**Devices → Wemos D1 → Latest telemetry** tab — the key `air_quality` should appear and update every 5 seconds.
+Check the server terminal — you should see:
+```
+[HTTP] wemos_d1 → { device_id: 'wemos_d1', air_quality: 143, ... }
+```
+
+And the dashboard Air Quality card will start updating.
 
 ---
 
@@ -93,36 +118,35 @@ const char* ACCESS_TOKEN  = "paste_wemos_access_token_here";
 ### 3.1 Wiring
 
 ```
-DHT22        Raspberry Pi (BCM numbering)
------        ---------------------------
-Pin 1 VCC  → 3.3V   (physical pin 1)
-Pin 2 DATA → GPIO4  (physical pin 7)  ← 10kΩ pull-up resistor between VCC and DATA
-Pin 4 GND  → GND    (physical pin 6)
+DHT22              Raspberry Pi
+─────              ────────────────────────────────
+Pin 1  VCC      →  3.3V   (physical pin 1)
+Pin 2  DATA     →  GPIO4  (physical pin 7)
+                   + 10kΩ resistor between VCC and DATA
+Pin 4  GND      →  GND    (physical pin 6)
 ```
 
-> DHT11 works too — change `Adafruit_DHT.DHT22` to `Adafruit_DHT.DHT11` in the script.
+> **DHT11** also works — change `Adafruit_DHT.DHT22` to `Adafruit_DHT.DHT11` in the script.
 
 ### 3.2 Install Python dependencies
 
 ```bash
-sudo apt update
-sudo apt install python3-pip -y
+sudo apt update && sudo apt install python3-pip -y
 pip3 install paho-mqtt Adafruit_DHT
 ```
 
-> On newer Raspberry Pi OS (Bookworm), if `pip3` is blocked, use:
+> On Raspberry Pi OS Bookworm, if pip is blocked:
 > ```bash
 > pip3 install paho-mqtt Adafruit_DHT --break-system-packages
 > ```
 
 ### 3.3 Configure the script
 
-Open `devices/raspberry_pi/dht_mqtt.py` and edit the top section:
+Open `devices/raspberry_pi/dht_mqtt.py` and edit:
 
 ```python
-TB_HOST      = "demo.thingsboard.io"
-ACCESS_TOKEN = "paste_raspberry_access_token_here"
-DHT_PIN      = 4    # BCM GPIO number — change if you used a different pin
+BROKER_HOST = "192.168.1.100"   # ← your machine's LAN IP from step 1.4
+DHT_PIN     = 4                 # BCM GPIO number (change if needed)
 ```
 
 ### 3.4 Run
@@ -133,81 +157,81 @@ python3 devices/raspberry_pi/dht_mqtt.py
 
 Expected output:
 ```
-[INFO] Connecting to ThingsBoard at demo.thingsboard.io:1883...
-[MQTT] Connected to ThingsBoard at demo.thingsboard.io:1883
-[SENT] {'temperature': 28.45, 'humidity': 64.3}
-[SENT] {'temperature': 28.47, 'humidity': 64.1}
+[INFO] Connecting to MQTT broker at 192.168.1.100:1883...
+[MQTT] Connected to broker at 192.168.1.100:1883
+[SENT] {'device_id': 'raspberry_pi', 'temperature': 28.45, 'humidity': 64.3}
 ```
 
-### 3.5 Run on boot (optional)
+### 3.5 Verify
+
+Check the server terminal:
+```
+[MQTT] client connected : raspberry_pi
+[MQTT] raspberry_pi → { device_id: 'raspberry_pi', temperature: 28.45, humidity: 64.3, ... }
+```
+
+The Temperature and Humidity cards on the dashboard will start updating.
+
+### 3.6 Run on boot (optional)
 
 ```bash
 crontab -e
-# Add this line:
-@reboot python3 /home/pi/IotLab4/devices/raspberry_pi/dht_mqtt.py &
+# Add this line at the bottom:
+@reboot python3 /home/pi/IotLab4/devices/raspberry_pi/dht_mqtt.py >> /home/pi/dht.log 2>&1 &
 ```
 
-### 3.6 Verify in ThingsBoard
+---
 
-**Devices → Raspberry Pi → Latest telemetry** — keys `temperature` and `humidity` should appear.
+## Part 4 — Dashboard
+
+Open **http://localhost:3000** (or `http://<server-ip>:3000` from another device).
+
+| Section | What it shows |
+|---------|--------------|
+| Device Status | Online / Offline badge + last-seen time for each device |
+| Current Readings | Live temperature, humidity, and air quality values |
+| History charts | Line charts for each metric (last 50 readings) |
+| Recent Readings table | Last 25 rows from the database |
+
+The dashboard updates in **real time via WebSocket** — no page reload needed.
 
 ---
 
-## Part 4 — ThingsBoard Dashboard
+## API Reference
 
-### 4.1 Create a new dashboard
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/sensors` | Receive sensor data from a device |
+| `GET`  | `/api/sensors?device_id=X&limit=50` | Query historical data |
+| `GET`  | `/api/sensors/latest` | Latest reading per device |
+| `POST` | `/api/commands/:deviceId` | Send a command to a device |
 
-1. Left sidebar → **Dashboards** → **+** → **Create new dashboard**
-2. Name: `Air Quality Monitor` → **Add**
-3. Click the dashboard → **Edit** (pencil icon, bottom-right)
-
-### 4.2 Add current-value cards
-
-For each metric, add a **Value Card** widget:
-
-1. Click **+** (Add widget) → **Cards** → **Value Card**
-2. **Add datasource**:
-   - Entity type: `Device`
-   - Device: select the device
-   - Telemetry key: the key from the table below
-3. Set a title and click **Add**
-
-| Widget title    | Device       | Key           |
-|-----------------|--------------|---------------|
-| Temperature     | Raspberry Pi | `temperature` |
-| Humidity        | Raspberry Pi | `humidity`    |
-| Air Quality     | Wemos D1     | `air_quality` |
-
-### 4.3 Add time-series line charts
-
-1. Click **+** → **Charts** → **Time series Line Chart**
-2. Add datasource → Device: `Raspberry Pi` → keys: `temperature`, `humidity`
-3. Add another chart for `Wemos D1` → key: `air_quality`
-4. Set time window to **Real time — Last 30 minutes**
-
-### 4.4 Add gauge widgets (optional)
-
-1. Click **+** → **Widgets Bundle: Gauge** → **Radial Gauge**
-2. One gauge per metric — set min/max:
-   - Temperature: 0–50 °C
-   - Humidity: 0–100 %
-   - Air Quality: 0–500 ppm
-
-### 4.5 Enable real-time refresh
-
-On each time-series chart widget:
-- Widget settings → **Time window** → **Real time** → interval `5 seconds`
-
-Click **Save** (checkmark, bottom-right) when done.
+**POST /api/sensors — example payloads**
+```json
+{ "device_id": "wemos_d1",    "air_quality": 143.0 }
+{ "device_id": "raspberry_pi","temperature": 28.5, "humidity": 64.3 }
+```
 
 ---
 
-## Telemetry Reference
+## Project Structure
 
-| Device       | Protocol | ThingsBoard endpoint                              | Keys sent                    |
-|--------------|----------|---------------------------------------------------|------------------------------|
-| Wemos D1     | HTTP     | `POST /api/v1/{token}/telemetry`                  | `air_quality` (ppm)          |
-| Raspberry Pi | MQTT     | topic `v1/devices/me/telemetry`, user = `{token}` | `temperature` (°C), `humidity` (%) |
+```
+IotLab4/
+├── server/
+│   ├── package.json       Node.js dependencies
+│   ├── server.js          Express + MQTT broker (aedes) + Socket.io
+│   ├── db.js              SQLite — insert, history, latest
+│   ├── routes/api.js      REST endpoints
+│   └── mqtt/handler.js    Parses MQTT messages → DB + WebSocket
+├── frontend/
+│   ├── index.html         Dashboard layout
+│   ├── style.css          Dark theme, responsive grid
+│   └── app.js             Chart.js + Socket.io real-time client
+└── devices/
+    ├── wemos_d1/wemos_d1.ino       Arduino — MQ-135 → HTTP POST
+    └── raspberry_pi/dht_mqtt.py    Python  — DHT22 → MQTT
+```
 
 ---
 
@@ -215,8 +239,9 @@ Click **Save** (checkmark, bottom-right) when done.
 
 | Problem | Fix |
 |---------|-----|
-| Wemos D1 not connecting to WiFi | Check SSID/password; ensure 2.4 GHz band |
-| HTTP error code on Wemos | Confirm `TB_HOST` and `ACCESS_TOKEN` are correct |
-| MQTT connection refused on Pi | Port 1883 must be open; check firewall on self-hosted TB |
-| DHT22 reads `None` | Check wiring and the 10kΩ pull-up resistor |
-| No data in ThingsBoard | Open *Latest telemetry* tab — not the *Attributes* tab |
+| `npm install` fails | Make sure Node.js 18+ is installed |
+| Port 3000 already in use | Change `HTTP_PORT` in `server/server.js` |
+| Wemos D1 HTTP error | Confirm `SERVER_IP` is the correct LAN IP; Wemos and server must be on the same WiFi |
+| Raspberry Pi MQTT refused | Port 1883 must not be blocked by firewall (`sudo ufw allow 1883`) |
+| DHT22 returns `None` | Check wiring; 10kΩ pull-up resistor between VCC and DATA is required |
+| Dashboard shows no data | Check browser console (F12) for WebSocket errors |
